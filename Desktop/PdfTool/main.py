@@ -1,6 +1,17 @@
 import os
 import sys
 from PyPDF2 import PdfReader, PdfWriter
+import subprocess
+import sys
+
+# 自動安裝機制
+try:
+    from PyPDF2 import PdfReader, PdfWriter
+except ImportError:
+    print("正在安裝必要的套件 (PyPDF2)...")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "PyPDF2"])
+    from PyPDF2 import PdfReader, PdfWriter
+    print("安裝完成！\n")
 
 def extract_pages(pdf_path, page_range_str):
     """
