@@ -12,9 +12,9 @@ Open your terminal (CMD or PowerShell) and enter the following command:
 git clone https://github.com/stanley-create/PdfTool.git
 ```
 ### 2. Navigate to the Directory
-
+```bash
 cd PdfTool
-
+```
 ### 3. Run the Program
 The program will automatically detect and install the required pypdf library on its first run:
 ```bash
