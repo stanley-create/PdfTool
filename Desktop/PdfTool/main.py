@@ -1,131 +1,89 @@
 import os
 import sys
-from PyPDF2 import PdfReader, PdfWriter
 import subprocess
-import sys
 
-# 自動安裝機制
 try:
-    from PyPDF2 import PdfReader, PdfWriter
+    from pypdf import PdfReader, PdfWriter
 except ImportError:
-    print("正在安裝必要的套件 (PyPDF2)...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "PyPDF2"])
-    from PyPDF2 import PdfReader, PdfWriter
-    print("安裝完成！\n")
+    print("偵測到缺少必要組件，正在為您自動配置 (pypdf)...")
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "pypdf"])
+        from pypdf import PdfReader, PdfWriter
+        print("配置完成！\n")
+    except Exception as e:
+        print(f"自動配置失敗，請手動輸入 'pip install pypdf'。錯誤原因: {e}")
+        sys.exit(1)
 
 def extract_pages(pdf_path, page_range_str):
-    """
-    Extracts a range of pages from a PDF and saves them as a new file.
-    page_range_str can be a single number "5" or a range "5~15" or "5-15".
-    """
     try:
         reader = PdfReader(pdf_path)
         total_pages = len(reader.pages)
         
-        # Parse range
-        if '~' in page_range_str:
-            parts = page_range_str.split('~')
-        elif '-' in page_range_str:
-             parts = page_range_str.split('-')
-        else:
-            parts = [page_range_str]
+        separator = '~' if '~' in page_range_str else '-'
+        parts = page_range_str.split(separator) if separator in page_range_str else [page_range_str]
             
         if len(parts) == 1:
-            start_page = int(parts[0])
-            end_page = start_page
+            start_page = end_page = int(parts[0])
         elif len(parts) == 2:
-            start_page = int(parts[0])
-            end_page = int(parts[1])
+            start_page, end_page = int(parts[0]), int(parts[1])
         else:
-            print("Invalid format. Please use 'Start~End' (e.g., 5~15) or a single page number.")
+            print("格式錯誤。請使用 '開始~結束' (如 5~15) 或單一頁碼。")
             return
 
-        # Validate range
         if start_page < 1 or end_page > total_pages or start_page > end_page:
-            print(f"Error: Invalid page range {start_page}~{end_page}. The document has {total_pages} pages.")
+            print(f"錯誤：無效頁碼。該文件共 {total_pages} 頁。")
             return
 
         writer = PdfWriter()
-        # Convert 1-based page numbers to 0-based index and extract
         for p in range(start_page, end_page + 1):
             writer.add_page(reader.pages[p - 1])
 
-        if start_page == end_page:
-            output_filename = f"extracted_page_{start_page}.pdf"
-        else:
-            output_filename = f"extracted_pages_{start_page}_to_{end_page}.pdf"
-            
+        output_filename = f"extracted_{start_page}.pdf" if start_page == end_page else f"extracted_{start_page}_to_{end_page}.pdf"
         output_path = os.path.join(os.path.dirname(pdf_path), output_filename)
         
         with open(output_path, "wb") as f:
             writer.write(f)
         
-        print(f"Success! Pages {start_page}~{end_page} saved to: {output_path}")
+        print(f"成功！已儲存至: {output_path}")
 
     except ValueError:
-        print("Error: Invalid number format.")
-    except FileNotFoundError:
-        print(f"Error: File not found at {pdf_path}")
+        print("錯誤：請輸入正確的數字格式。")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"發生錯誤: {e}")
 
 def list_pdfs(directory):
-    pdfs = [f for f in os.listdir(directory) if f.lower().endswith('.pdf')]
-    return pdfs
+    return [f for f in os.listdir(directory) if f.lower().endswith('.pdf')]
 
 def main():
-    print("--- PDF Page Extractor ---")
+    print("--- PDF 頁面提取工具 (AI 協作版) ---")
     
     target_dir = os.path.dirname(os.path.abspath(__file__))
-    pdf_path = None
-
-    # Check if file path is provided as command line argument
-    if len(sys.argv) > 1:
-        pdf_path = sys.argv[1]
+    
+    pdfs = list_pdfs(target_dir)
+    if not pdfs:
+        print(f"在 {target_dir} 中找不到 PDF 檔案。")
+        pdf_path = input("請輸入 PDF 的完整路徑: ").strip().strip('"')
     else:
-        if os.path.exists(target_dir):
-            pdfs = list_pdfs(target_dir)
-            if pdfs:
-                print(f"Found {len(pdfs)} PDF(s) in {target_dir}:")
-                for i, pdf in enumerate(pdfs, 1):
-                    print(f"{i}. {pdf}")
-                
-                while True:
-                    selection = input("\nEnter the number of the PDF to use (or path, or 'q' to quit): ").strip()
-                    if selection.lower() == 'q':
-                        return
-                    
-                    if selection.isdigit():
-                        idx = int(selection)
-                        if 1 <= idx <= len(pdfs):
-                            pdf_path = os.path.join(target_dir, pdfs[idx-1])
-                            break
-                        else:
-                            print("Invalid selection.")
-                    else:
-                        # Maybe they typed a path manually
-                        pdf_path = selection.strip('"') 
-                        break
-            else:
-                 print(f"No PDFs found in {target_dir}.")
-                 pdf_path = input("Enter the path to the PDF file: ").strip().strip('"')
+        print(f"在目錄中找到 {len(pdfs)} 個檔案：")
+        for i, pdf in enumerate(pdfs, 1):
+            print(f"{i}. {pdf}")
+        
+        choice = input("\n請輸入編號選擇檔案 (或按 q 退出): ").strip()
+        if choice.lower() == 'q': return
+        
+        if choice.isdigit() and 1 <= int(choice) <= len(pdfs):
+            pdf_path = os.path.join(target_dir, pdfs[int(choice)-1])
         else:
-            print(f"Directory not found: {target_dir}")
-            pdf_path = input("Enter the path to the PDF file: ").strip().strip('"')
+            pdf_path = choice.strip('"')
 
-    if not pdf_path or not os.path.exists(pdf_path):
-        print("Error: The file does not exist. Please check the path and try again.")
+    if not os.path.exists(pdf_path):
+        print("錯誤：檔案不存在。")
         return
 
-    print(f"\nSelected: {pdf_path}")
-
     while True:
-        page_input = input("Enter the page range to extract (e.g. 5~15 or 5) (or 'q' to quit): ").strip()
-        if page_input.lower() == 'q':
-            break
-        
+        page_input = input("\n請輸入要提取的頁碼範圍 (例如 5~15 或 5) (按 q 退出): ").strip()
+        if page_input.lower() == 'q': break
         extract_pages(pdf_path, page_input)
-        print("\n")
 
 if __name__ == "__main__":
     main()
